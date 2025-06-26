@@ -1,0 +1,75 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/ItsKevinRafaell/go-momentum-api/internal/config"
+	"github.com/ItsKevinRafaell/go-momentum-api/internal/repository"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type AuthService struct {
+	userRepo *repository.UserRepository
+}
+
+func NewAuthService(userRepo *repository.UserRepository) *AuthService {
+	return &AuthService{userRepo: userRepo}
+}
+
+func (s *AuthService) RegisterUser(ctx context.Context, email, password string) (*repository.User, error) {
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	newUser := &repository.User{
+		Email:    email,
+		Password: string(hashedPassword),
+	}
+
+	id, err := s.userRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		return nil, err
+	}
+
+	newUser.ID = id
+	return newUser, nil
+}
+
+func (s *AuthService) LoginUser(ctx context.Context, email, password string) (string, error) {
+	// 1. Cari user berdasarkan email
+	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		// Jika user tidak ditemukan, kembalikan error yang jelas
+		return "", errors.New("invalid credentials")
+	}
+
+	// 2. Bandingkan password yang diberikan dengan hash di database
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		// Jika password salah, bcrypt akan mengembalikan error
+		return "", errors.New("invalid credentials")
+	}
+
+	// 3. Jika berhasil, buat JWT Token
+	claims := jwt.MapClaims{
+		"sub": user.ID,                                       // Subject (identitas user)
+		"exp": time.Now().Add(time.Hour * 24).Unix(),         // Waktu kedaluwarsa (24 jam)
+		"iat": time.Now().Unix(),                             // Waktu token dibuat
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Ambil secret key dari .env
+	jwtSecret := config.Get("JWT_SECRET_KEY")
+	tokenString, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
