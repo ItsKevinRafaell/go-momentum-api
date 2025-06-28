@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/service"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -72,20 +71,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- PERUBAHAN DIMULAI DI SINI ---
-	// Atur cookie di respons
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token", // Nama cookie kita
-		Value:    token,
-		Expires:  time.Now().Add(24 * time.Hour), // Samakan dengan masa berlaku token
-		HttpOnly: true,     // Paling penting: tidak bisa diakses JavaScript
-		Path:     "/",      // Berlaku untuk seluruh situs
-		SameSite: http.SameSiteNoneMode, 
-		Secure: true,
-		// Secure: true,  // Aktifkan ini saat Anda sudah menggunakan HTTPS sepenuhnya
-	})
-
-	// Kirim respons sukses tanpa token di body
+	// KEMBALIKAN TOKEN DI BODY JSON
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"token": token,
+	})
 }
