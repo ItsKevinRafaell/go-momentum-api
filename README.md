@@ -41,7 +41,7 @@ Untuk menjalankan proyek ini di lingkungan lokal Anda, ikuti langkah-langkah ber
     API_PORT=8080
 
     # Konfigurasi Database PostgreSQL
-    DATABASE_URL="postgresql://postgres:admin@localhost:5432/momentum_db?sslmode=disable"
+    DATABASE_URL="postgresql://postgres:[password]@localhost:5432/momentum_db?sslmode=disable"
 
     # Konfigurasi JWT
     JWT_SECRET_KEY="ganti-dengan-kunci-rahasia-acak-yang-sangat-panjang"
