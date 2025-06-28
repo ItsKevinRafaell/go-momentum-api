@@ -23,7 +23,7 @@ Untuk menjalankan proyek ini di lingkungan lokal Anda, ikuti langkah-langkah ber
 1.  **Clone repositori ini:**
 
     ```bash
-    git clone [https://github.com/username/project-momentum.git](https://github.com/username/project-momentum.git)
+    git clone https://github.com/ItsKevinRafaell/go-momentum-api.git
     cd project-momentum
     ```
 
