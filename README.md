@@ -186,21 +186,46 @@ Memerlukan autentikasi.
 
 - `PUT /tasks/{taskId}`
 
-  **Request Body:** `{"title": "Judul tugas yang baru"}`
+  **Request Body:**
+
+  ```json
+  {
+    "title": "Judul tugas yang baru"
+  }
+  ```
+
   **Success Response (`200 OK`):** `{"message": "Task title updated successfully"}`
 
 #### 4. Mengubah Status Tugas
 
 - `PUT /tasks/{taskId}/status`
 
-  **Request Body:** `{"status": "completed"}` atau `{"status": "pending"}`
+  **Request Body:**
+
+  ```json
+   {
+   "status": "completed"
+   }
+   atau
+   {
+   "status": "pending"
+   }
+  ```
+
   **Success Response (`200 OK`):** `{"message": "Task status updated"}`
 
 #### 5. Mengubah Deadline Tugas
 
 - `PUT /tasks/{taskId}/deadline`
 
-  **Request Body:** `{"deadline": "2025-06-29T17:00:00Z"}`
+  **Request Body:**
+
+  ```json
+  {
+    "deadline": "2025-06-29T17:00:00Z"
+  }
+  ```
+
   **Success Response (`200 OK`):** `{"message": "Task deadline updated successfully"}`
 
 #### 6. Menghapus Tugas
