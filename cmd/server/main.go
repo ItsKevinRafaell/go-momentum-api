@@ -28,6 +28,15 @@ func main() {
     authService := service.NewAuthService(userRepo)
     authHandler := handler.NewAuthHandler(authService)
 
+    goalRepo := repository.NewGoalRepository(dbPool)
+    roadmapRepo := repository.NewRoadmapRepository(dbPool)
+    goalService := service.NewGoalService(goalRepo, roadmapRepo)
+    goalHandler := handler.NewGoalHandler(goalService)
+
+    taskRepo := repository.NewTaskRepository(dbPool)
+    taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo)
+    taskHandler := handler.NewTaskHandler(taskService)
+
     r := chi.NewRouter()
     r.Use(middleware.Logger)
 
@@ -39,11 +48,16 @@ func main() {
     r.Group(func(r chi.Router) {
         r.Use(auth.JwtMiddleware)
 
-        r.Post("/api/goals", func(w http.ResponseWriter, r *http.Request) {
-			// Ambil userID dari context yang sudah disisipkan oleh middleware
-			userID := r.Context().Value(auth.UserIDKey).(string)
-			w.Write([]byte("Welcome! Your User ID is: " + userID))
-		})
+        r.Post("/api/goals", goalHandler.CreateGoal)
+        r.Get("/api/goals/active", goalHandler.GetActiveGoal)
+
+        r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
+        r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)
+        r.Put("/api/tasks/{taskId}/deadline", taskHandler.UpdateTaskDeadline) 
+        r.Put("/api/tasks/{taskId}", taskHandler.UpdateTaskTitle)
+        r.Post("/api/tasks", taskHandler.CreateManualTask)
+        r.Delete("/api/tasks/{taskId}", taskHandler.DeleteTask)
+        r.Post("/api/schedule/review", taskHandler.ReviewDay)
     })
 
     port := config.Get("API_PORT")
@@ -56,3 +70,4 @@ func main() {
         log.Fatalf("Failed to start server: %v", err)
     }
 }
+
