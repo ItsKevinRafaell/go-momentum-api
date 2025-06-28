@@ -80,7 +80,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().Add(24 * time.Hour), // Samakan dengan masa berlaku token
 		HttpOnly: true,     // Paling penting: tidak bisa diakses JavaScript
 		Path:     "/",      // Berlaku untuk seluruh situs
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode, 
+		Secure: true,
 		// Secure: true,  // Aktifkan ini saat Anda sudah menggunakan HTTPS sepenuhnya
 	})
 
