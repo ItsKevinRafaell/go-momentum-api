@@ -40,6 +40,11 @@ func main() {
     r := chi.NewRouter()
     r.Use(middleware.Logger)
 
+    r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Server is healthy and running!"))
+    })
+    
+
     r.Route("/api/auth", func(r chi.Router) {
         r.Post("/register", authHandler.Register)
         r.Post("/login", authHandler.Login)
@@ -66,7 +71,11 @@ func main() {
     }
     fmt.Println("API for Project: Momentum is starting...")
 
-    if err:= http.ListenAndServe(":"+port, r); err != nil {
+
+    listenAddr := fmt.Sprintf("0.0.0.0:%s", port)
+    log.Printf("API for Project: Momentum is starting on %s", listenAddr)
+
+    if err := http.ListenAndServe(listenAddr, r); err != nil {
         log.Fatalf("Failed to start server: %v", err)
     }
 }

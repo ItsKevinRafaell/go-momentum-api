@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for go-momentum-api-silent-sky-9489 on 2025-06-28T13:15:05+07:00
+# fly.toml app configuration file generated for go-momentum-api-cold-dawn-7307 on 2025-06-28T14:08:47+07:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'go-momentum-api-silent-sky-9489'
+app = 'go-momentum-api-cold-dawn-7307'
 primary_region = 'sin'
 
 [build]
@@ -11,12 +11,16 @@ primary_region = 'sin'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
 
-# Blok baru yang kita tambahkan
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
 [checks]
   [checks.alive]
     type = "http"
