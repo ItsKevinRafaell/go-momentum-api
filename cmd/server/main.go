@@ -1,3 +1,5 @@
+// file: cmd/server/main.go
+
 package main
 
 import (
@@ -8,7 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors" // Pastikan Anda mengimpor modul CORS
 
+	// Ganti dengan path modul Anda
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/auth"
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/config"
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/database"
@@ -18,65 +22,73 @@ import (
 )
 
 func main() {
-    config.LoadConfig()
-    dbPool := database.NewConnection(context.Background())
-    defer dbPool.Close()
+	config.LoadConfig()
+	dbPool := database.NewConnection(context.Background())
+	defer dbPool.Close()
 
-    log.Println("Database connection established successfully")
+	log.Println("Database connection established successfully")
 
-    userRepo := repository.NewUserRepository(dbPool)
-    authService := service.NewAuthService(userRepo)
-    authHandler := handler.NewAuthHandler(authService)
+	userRepo := repository.NewUserRepository(dbPool)
+	authService := service.NewAuthService(userRepo)
+	authHandler := handler.NewAuthHandler(authService)
 
-    goalRepo := repository.NewGoalRepository(dbPool)
-    roadmapRepo := repository.NewRoadmapRepository(dbPool)
-    goalService := service.NewGoalService(goalRepo, roadmapRepo)
-    goalHandler := handler.NewGoalHandler(goalService)
+	goalRepo := repository.NewGoalRepository(dbPool)
+	roadmapRepo := repository.NewRoadmapRepository(dbPool)
+	goalService := service.NewGoalService(goalRepo, roadmapRepo)
+	goalHandler := handler.NewGoalHandler(goalService)
 
-    taskRepo := repository.NewTaskRepository(dbPool)
-    taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo)
-    taskHandler := handler.NewTaskHandler(taskService)
+	taskRepo := repository.NewTaskRepository(dbPool)
+	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo)
+	taskHandler := handler.NewTaskHandler(taskService)
 
-    r := chi.NewRouter()
-    r.Use(middleware.Logger)
+	r := chi.NewRouter()
 
-    r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-        w.Write([]byte("Server is healthy and running!"))
-    })
-    
+	// --- TAMBAHKAN BLOK CORS DI SINI ---
+	r.Use(cors.New(cors.Options{
+		// Sesuaikan daftar origin ini dengan kebutuhan development Anda
+		AllowedOrigins:   []string{"http://localhost:3000", "http://192.168.248.1:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}).Handler)
+	// --- AKHIR BLOK CORS ---
 
-    r.Route("/api/auth", func(r chi.Router) {
-        r.Post("/register", authHandler.Register)
-        r.Post("/login", authHandler.Login)
-    })
+	r.Use(middleware.Logger)
 
-    r.Group(func(r chi.Router) {
-        r.Use(auth.JwtMiddleware)
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Server is healthy and running!"))
+	})
 
-        r.Post("/api/goals", goalHandler.CreateGoal)
-        r.Get("/api/goals/active", goalHandler.GetActiveGoal)
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+	})
 
-        r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
-        r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)
-        r.Put("/api/tasks/{taskId}/deadline", taskHandler.UpdateTaskDeadline) 
-        r.Put("/api/tasks/{taskId}", taskHandler.UpdateTaskTitle)
-        r.Post("/api/tasks", taskHandler.CreateManualTask)
-        r.Delete("/api/tasks/{taskId}", taskHandler.DeleteTask)
-        r.Post("/api/schedule/review", taskHandler.ReviewDay)
-    })
+	r.Group(func(r chi.Router) {
+		r.Use(auth.JwtMiddleware)
 
-    port := config.Get("API_PORT")
-    if port == "" {
-        port = "8080" // Default port if not set
-    }
-    fmt.Println("API for Project: Momentum is starting...")
+		r.Post("/api/goals", goalHandler.CreateGoal)
+		r.Get("/api/goals/active", goalHandler.GetActiveGoal)
 
+		r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
+		r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)
+		r.Put("/api/tasks/{taskId}/deadline", taskHandler.UpdateTaskDeadline)
+		r.Put("/api/tasks/{taskId}", taskHandler.UpdateTaskTitle)
+		r.Post("/api/tasks", taskHandler.CreateManualTask)
+		r.Delete("/api/tasks/{taskId}", taskHandler.DeleteTask)
+		r.Post("/api/schedule/review", taskHandler.ReviewDay)
+	})
 
-    listenAddr := fmt.Sprintf("0.0.0.0:%s", port)
-    log.Printf("API for Project: Momentum is starting on %s", listenAddr)
+	port := config.Get("API_PORT")
+	if port == "" {
+		port = "8080" // Default port if not set
+	}
 
-    if err := http.ListenAndServe(listenAddr, r); err != nil {
-        log.Fatalf("Failed to start server: %v", err)
-    }
+	listenAddr := fmt.Sprintf("0.0.0.0:%s", port)
+	log.Printf("API for Project: Momentum is starting on %s", listenAddr)
+
+	if err := http.ListenAndServe(listenAddr, r); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
-
