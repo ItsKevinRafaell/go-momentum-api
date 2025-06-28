@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/service"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -59,7 +60,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var payload RegisterPayload // Kita bisa pakai struct yang sama
+	var payload RegisterPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -71,9 +72,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token,
+	// --- PERUBAHAN DIMULAI DI SINI ---
+	// Atur cookie di respons
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token", // Nama cookie kita
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour), // Samakan dengan masa berlaku token
+		HttpOnly: true,     // Paling penting: tidak bisa diakses JavaScript
+		Path:     "/",      // Berlaku untuk seluruh situs
+		SameSite: http.SameSiteLaxMode,
+		// Secure: true,  // Aktifkan ini saat Anda sudah menggunakan HTTPS sepenuhnya
 	})
+
+	// Kirim respons sukses tanpa token di body
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
 }
