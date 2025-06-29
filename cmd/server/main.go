@@ -68,6 +68,9 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.JwtMiddleware)
 
+		r.Put("/api/auth/change-password", authHandler.ChangePassword)
+		r.Post("/api/auth/logout", authHandler.Logout)
+
 		r.Post("/api/goals", goalHandler.CreateGoal)
 		r.Get("/api/goals/active", goalHandler.GetActiveGoal)
 

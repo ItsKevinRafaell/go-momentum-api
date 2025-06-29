@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,4 +41,27 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*User, error) {
+    var user User
+    sql := "SELECT id, email, password_hash FROM users WHERE id = $1"
+    err := r.db.QueryRow(ctx, sql, userID).Scan(&user.ID, &user.Email, &user.Password)
+    if err != nil {
+        return nil, err
+    }
+    return &user, nil
+}
+
+// UpdatePasswordHash hanya mengupdate kolom password_hash.
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID, newHashedPassword string) error {
+    sql := "UPDATE users SET password_hash = $1 WHERE id = $2"
+    result, err := r.db.Exec(ctx, sql, newHashedPassword, userID)
+    if err != nil {
+        return err
+    }
+    if result.RowsAffected() == 0 {
+        return pgx.ErrNoRows
+    }
+    return nil
 }
