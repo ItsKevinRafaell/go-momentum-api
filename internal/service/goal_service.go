@@ -131,3 +131,7 @@ func (s *GoalService) AddRoadmapStep(ctx context.Context, goalID, title string) 
 func (s *GoalService) UpdateRoadmapStep(ctx context.Context, userID, stepID, newTitle string) error {
     return s.roadmapRepo.UpdateStepTitle(ctx, userID, stepID, newTitle)
 }
+
+func (s *GoalService) DeleteRoadmapStep(ctx context.Context, userID, stepID string) error {
+	return s.roadmapRepo.DeleteRoadmapStep(ctx, userID, stepID)
+}

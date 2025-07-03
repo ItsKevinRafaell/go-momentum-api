@@ -115,3 +115,22 @@ func (r *RoadmapRepository) UpdateStepTitle(ctx context.Context, userID, stepID,
 	}
 	return nil
 }
+
+func (r *RoadmapRepository) DeleteRoadmapStep(ctx context.Context, userID, stepID string) error {
+	// Query ini lebih sederhana dan efisien, menggunakan klausa USING dari PostgreSQL
+	// untuk melakukan join implisit dan validasi kepemilikan.
+	sql := `DELETE FROM roadmap_steps
+	        USING goals
+	        WHERE roadmap_steps.id = $1
+	          AND roadmap_steps.goal_id = goals.id
+	          AND goals.user_id = $2`
+
+	result, err := r.db.Exec(ctx, sql, stepID, userID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows // Kirim error jika tidak ada baris yang dihapus
+	}
+	return nil
+}

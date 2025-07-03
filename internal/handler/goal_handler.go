@@ -178,3 +178,24 @@ func (h *GoalHandler) UpdateRoadmapStep(w http.ResponseWriter, r *http.Request) 
 
     writeJSONError(w, http.StatusOK, "Roadmap step updated successfully")
 }
+
+func (h *GoalHandler) DeleteRoadmapStep(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+	stepID := chi.URLParam(r, "stepId")
+
+	err := h.goalService.DeleteRoadmapStep(r.Context(), userID, stepID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeJSONError(w, http.StatusNotFound, "Roadmap step not found or you don't have permission")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Failed to delete roadmap step")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent) // 204 No Content untuk delete yang sukses
+}

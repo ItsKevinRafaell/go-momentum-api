@@ -81,6 +81,7 @@ func main() {
 		r.Put("/api/goals/{goalId}", goalHandler.UpdateGoal)
 		r.Post("/api/goals/{goalId}/steps", goalHandler.AddRoadmapStep)
 		r.Put("/api/roadmap-steps/{stepId}", goalHandler.UpdateRoadmapStep)
+		r.Delete("/api/roadmap-steps/{stepId}", goalHandler.DeleteRoadmapStep)
 
 		r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
 		r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)
