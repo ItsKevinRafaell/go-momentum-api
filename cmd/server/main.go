@@ -78,6 +78,7 @@ func main() {
 
 		r.Post("/api/goals", goalHandler.CreateGoal)
 		r.Get("/api/goals/active", goalHandler.GetActiveGoal)
+		r.Put("/api/goals/{goalId}", goalHandler.UpdateGoal)
 
 		r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
 		r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)

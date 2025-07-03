@@ -7,6 +7,7 @@ import (
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/auth"
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 type GoalHandler struct {
@@ -16,6 +17,10 @@ type GoalHandler struct {
 // Payload untuk request pembuatan goal
 type CreateGoalPayload struct {
 	Description string `json:"description"`
+}
+
+type UpdateGoalPayload struct {
+    Description string `json:"description"`
 }
 
 func NewGoalHandler(goalService *service.GoalService) *GoalHandler {
@@ -86,4 +91,30 @@ func (h *GoalHandler) GetActiveGoal(w http.ResponseWriter, r *http.Request) {
 		"goal":  goal,
 		"steps": steps,
 	})
+}
+
+func (h *GoalHandler) UpdateGoal(w http.ResponseWriter, r *http.Request) {
+    userID, ok := r.Context().Value(auth.UserIDKey).(string)
+    if !ok { writeJSONError(w, http.StatusUnauthorized, "Invalid token"); return }
+
+    goalID := chi.URLParam(r, "goalId") // Ambil ID dari URL
+
+    var payload UpdateGoalPayload
+    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+        writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+        return
+    }
+
+    goal, steps, err := h.goalService.UpdateGoal(r.Context(), userID, goalID, payload.Description)
+    if err != nil {
+        writeJSONError(w, http.StatusInternalServerError, "Failed to update goal")
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "goal":  goal,
+        "steps": steps,
+    })
 }

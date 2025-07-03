@@ -60,3 +60,10 @@ func (r *RoadmapRepository) GetRoadmapStepsByGoalID(ctx context.Context, goalID 
 
 	return steps, nil
 }
+
+// DeleteRoadmapStepsByGoalID menghapus semua langkah roadmap yang terhubung ke sebuah goal.
+func (r *RoadmapRepository) DeleteRoadmapStepsByGoalID(ctx context.Context, goalID string) error {
+    sql := "DELETE FROM roadmap_steps WHERE goal_id = $1"
+    _, err := r.db.Exec(ctx, sql, goalID)
+    return err
+}

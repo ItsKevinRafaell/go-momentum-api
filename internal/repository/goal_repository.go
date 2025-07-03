@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,4 +41,17 @@ func (r *GoalRepository) GetActiveGoalByUserID(ctx context.Context, userID strin
 		return nil, err // Akan mengembalikan error jika tidak ada baris yang ditemukan
 	}
 	return &goal, nil
+}
+
+// UpdateGoalDescription memperbarui kolom deskripsi dari sebuah goal.
+func (r *GoalRepository) UpdateGoalDescription(ctx context.Context, userID, goalID, newDescription string) error {
+    sql := "UPDATE goals SET description = $1 WHERE id = $2 AND user_id = $3"
+    result, err := r.db.Exec(ctx, sql, newDescription, goalID, userID)
+    if err != nil {
+        return err
+    }
+    if result.RowsAffected() == 0 {
+        return pgx.ErrNoRows
+    }
+    return nil
 }

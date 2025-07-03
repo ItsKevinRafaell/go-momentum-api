@@ -73,3 +73,38 @@ func (s *GoalService) GetActiveGoal(ctx context.Context, userID string) (*reposi
 
 	return goal, steps, nil
 }
+
+// UpdateGoal mengorkestrasi proses update tujuan dan regenerasi roadmap.
+func (s *GoalService) UpdateGoal(ctx context.Context, userID, goalID, newDescription string) (*repository.Goal, []repository.RoadmapStep, error) {
+    // 1. Update deskripsi goal di database
+    if err := s.goalRepo.UpdateGoalDescription(ctx, userID, goalID, newDescription); err != nil {
+        return nil, nil, err
+    }
+
+    // 2. Hapus semua roadmap steps yang lama
+    if err := s.roadmapRepo.DeleteRoadmapStepsByGoalID(ctx, goalID); err != nil {
+        return nil, nil, err
+    }
+
+    // 3. Panggil AI untuk membuat roadmap steps yang baru
+    newSteps, err := s.aiService.GenerateRoadmapWithAI(ctx, newDescription)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    // 4. Hubungkan dan simpan roadmap steps yang baru
+    for i := range newSteps {
+        newSteps[i].GoalID = goalID
+    }
+    if err := s.roadmapRepo.CreateRoadmapSteps(ctx, newSteps); err != nil {
+        return nil, nil, err
+    }
+
+    // 5. Ambil data goal yang sudah terupdate untuk dikembalikan
+    updatedGoal, err := s.goalRepo.GetActiveGoalByUserID(ctx, userID)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    return updatedGoal, newSteps, nil
+}
