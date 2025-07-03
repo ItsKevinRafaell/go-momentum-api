@@ -46,7 +46,7 @@ func main() {
 	// --- TAMBAHKAN BLOK CORS DI SINI ---
 	r.Use(cors.New(cors.Options{
 		// Sesuaikan daftar origin ini dengan kebutuhan development Anda
-		AllowedOrigins:   []string{"http://localhost:3000", "http://192.168.248.1:3000"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://192.168.248.1:3000", "https://momentum-next-js.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -69,7 +69,6 @@ func main() {
 		r.Use(auth.JwtMiddleware)
 
 		r.Put("/api/auth/change-password", authHandler.ChangePassword)
-		r.Post("/api/auth/logout", authHandler.Logout)
 
 		r.Post("/api/goals", goalHandler.CreateGoal)
 		r.Get("/api/goals/active", goalHandler.GetActiveGoal)
