@@ -108,3 +108,22 @@ func (s *GoalService) UpdateGoal(ctx context.Context, userID, goalID, newDescrip
 
     return updatedGoal, newSteps, nil
 }
+
+func (s *GoalService) AddRoadmapStep(ctx context.Context, goalID, title string) (*repository.RoadmapStep, error) {
+    // 1. Dapatkan urutan terakhir
+    lastOrder, err := s.roadmapRepo.GetLastStepOrder(ctx, goalID)
+    if err != nil {
+        return nil, err
+    }
+
+    // 2. Buat objek step baru dengan urutan + 1
+    newStep := &repository.RoadmapStep{
+        GoalID:  goalID,
+        Order:   lastOrder + 1,
+        Title:   title,
+        Status:  "pending",
+    }
+
+    // 3. Simpan ke database
+    return s.roadmapRepo.CreateRoadmapStep(ctx, newStep)
+}

@@ -67,3 +67,33 @@ func (r *RoadmapRepository) DeleteRoadmapStepsByGoalID(ctx context.Context, goal
     _, err := r.db.Exec(ctx, sql, goalID)
     return err
 }
+
+func (r *RoadmapRepository) GetLastStepOrder(ctx context.Context, goalID string) (int, error) {
+    var lastOrder int
+    sql := "SELECT COALESCE(MAX(step_order), 0) FROM roadmap_steps WHERE goal_id = $1"
+    err := r.db.QueryRow(ctx, sql, goalID).Scan(&lastOrder)
+    if err != nil {
+        return 0, err
+    }
+    return lastOrder, nil
+}
+
+// CreateRoadmapStep menyimpan satu langkah roadmap baru.
+func (r *RoadmapRepository) CreateRoadmapStep(ctx context.Context, step *RoadmapStep) (*RoadmapStep, error) {
+    var createdStep RoadmapStep
+    sql := `INSERT INTO roadmap_steps (goal_id, step_order, title, status)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, goal_id, step_order, title, status`
+
+    err := r.db.QueryRow(ctx, sql, step.GoalID, step.Order, step.Title, step.Status).Scan(
+        &createdStep.ID,
+        &createdStep.GoalID,
+        &createdStep.Order,
+        &createdStep.Title,
+        &createdStep.Status,
+    )
+    if err != nil {
+        return nil, err
+    }
+    return &createdStep, nil
+}

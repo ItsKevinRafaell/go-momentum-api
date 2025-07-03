@@ -23,6 +23,10 @@ type UpdateGoalPayload struct {
     Description string `json:"description"`
 }
 
+type AddStepPayload struct {
+    Title string `json:"title"`
+}
+
 func NewGoalHandler(goalService *service.GoalService) *GoalHandler {
 	return &GoalHandler{goalService: goalService}
 }
@@ -117,4 +121,28 @@ func (h *GoalHandler) UpdateGoal(w http.ResponseWriter, r *http.Request) {
         "goal":  goal,
         "steps": steps,
     })
+}
+
+func (h *GoalHandler) AddRoadmapStep(w http.ResponseWriter, r *http.Request) {
+    goalID := chi.URLParam(r, "goalId")
+
+    var payload AddStepPayload
+    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+        writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+        return
+    }
+    if payload.Title == "" {
+        writeJSONError(w, http.StatusBadRequest, "Title cannot be empty")
+        return
+    }
+
+    newStep, err := h.goalService.AddRoadmapStep(r.Context(), goalID, payload.Title)
+    if err != nil {
+        writeJSONError(w, http.StatusInternalServerError, "Failed to add roadmap step")
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(newStep)
 }
