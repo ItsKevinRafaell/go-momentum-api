@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/auth"
@@ -38,11 +39,14 @@ func (h *GoalHandler) CreateGoal(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Panggil service untuk melakukan semua logika
 	goal, steps, err := h.goalService.CreateNewGoal(r.Context(), userID, payload.Description)
-	if err != nil {
-		// Nanti kita bisa buat error handling yang lebih spesifik
-		http.Error(w, "Failed to create goal", http.StatusInternalServerError)
-		return
-	}
+    if err != nil {
+        // --- PERBAIKAN LOGGING DI SINI ---
+        // Kita log error aslinya ke terminal server untuk debugging
+        log.Printf("ERROR creating goal with AI: %v", err) 
+        // Kirim pesan error yang lebih umum ke frontend
+        writeJSONError(w, http.StatusInternalServerError, "Failed to generate roadmap from AI.")
+        return
+    }
 
 	// 4. Kirim response sukses
 	w.Header().Set("Content-Type", "application/json")
