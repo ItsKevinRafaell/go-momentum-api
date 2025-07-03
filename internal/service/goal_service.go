@@ -2,48 +2,35 @@ package service
 
 import (
 	"context"
-	"log"
 
-	"github.com/jackc/pgx/v5"
-	// Ganti dengan path modul Anda
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/repository"
+	"github.com/jackc/pgx/v5"
 )
 
 type GoalService struct {
 	goalRepo    *repository.GoalRepository
 	roadmapRepo *repository.RoadmapRepository
+	aiService   *AIService // <-- 1. Tambahkan dependensi ke AI Service
 }
 
-func NewGoalService(goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository) *GoalService {
+// 2. Terima AIService sebagai argumen
+func NewGoalService(goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository, aiService *AIService) *GoalService {
 	return &GoalService{
 		goalRepo:    goalRepo,
 		roadmapRepo: roadmapRepo,
+		aiService:   aiService, // <-- 3. Simpan instance-nya
 	}
 }
 
-// --- FUNGSI AI PALSU (MOCK) ---
-// Nanti kita akan ganti ini dengan panggilan ke API Gemini yang sesungguhnya.
-func (s *GoalService) callAIToGenerateRoadmap(ctx context.Context, goalDescription string) ([]repository.RoadmapStep, error) {
-	log.Println("Memanggil AI (versi palsu) untuk membuat roadmap...")
-	// Untuk sekarang, kita kembalikan data dummy/palsu.
-	mockedSteps := []repository.RoadmapStep{
-		{Order: 1, Title: "Minggu 1-2: Belajar fundamental dan setup lingkungan", Status: "pending"},
-		{Order: 2, Title: "Minggu 3-4: Membuat proyek sederhana pertama", Status: "pending"},
-		{Order: 3, Title: "Minggu 5: Belajar tentang testing dan deployment", Status: "pending"},
-	}
-	log.Println("AI (versi palsu) berhasil membuat roadmap.")
-	return mockedSteps, nil
-}
+// Fungsi callAIToGenerateRoadmap yang lama bisa dihapus.
 
-// CreateNewGoal adalah fungsi utama yang mengorkestrasi semuanya.
 func (s *GoalService) CreateNewGoal(ctx context.Context, userID string, goalDescription string) (*repository.Goal, []repository.RoadmapStep, error) {
-	// 1. Panggil AI untuk mendapatkan langkah-langkah roadmap
-	steps, err := s.callAIToGenerateRoadmap(ctx, goalDescription)
+	// 4. Panggil AI service yang asli, bukan mock lagi
+	steps, err := s.aiService.GenerateRoadmapWithAI(ctx, goalDescription)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// 2. Buat dan simpan Goal utama untuk mendapatkan ID-nya
 	newGoal := &repository.Goal{
 		UserID:      userID,
 		Description: goalDescription,
@@ -55,12 +42,10 @@ func (s *GoalService) CreateNewGoal(ctx context.Context, userID string, goalDesc
 	}
 	newGoal.ID = goalID
 
-	// 3. Tetapkan goalID untuk setiap langkah roadmap
 	for i := range steps {
 		steps[i].GoalID = goalID
 	}
 
-	// 4. Simpan semua langkah roadmap ke database
 	err = s.roadmapRepo.CreateRoadmapSteps(ctx, steps)
 	if err != nil {
 		return nil, nil, err

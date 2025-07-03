@@ -29,17 +29,23 @@ func main() {
 	log.Println("Database connection established successfully")
 
 	userRepo := repository.NewUserRepository(dbPool)
-	authService := service.NewAuthService(userRepo)
-	authHandler := handler.NewAuthHandler(authService)
-
 	goalRepo := repository.NewGoalRepository(dbPool)
 	roadmapRepo := repository.NewRoadmapRepository(dbPool)
-	goalService := service.NewGoalService(goalRepo, roadmapRepo)
-	goalHandler := handler.NewGoalHandler(goalService)
-
 	taskRepo := repository.NewTaskRepository(dbPool)
-	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo)
+
+	// 2. Buat instance AIService
+	aiService := service.NewAIService()
+
+	// 3. Berikan aiService ke service lain yang membutuhkannya
+	authService := service.NewAuthService(userRepo)
+	goalService := service.NewGoalService(goalRepo, roadmapRepo, aiService)
+	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo, aiService)
+
+	// 4. Buat instance Handler seperti biasa
+	authHandler := handler.NewAuthHandler(authService)
+	goalHandler := handler.NewGoalHandler(goalService)
 	taskHandler := handler.NewTaskHandler(taskService)
+
 
 	r := chi.NewRouter()
 
