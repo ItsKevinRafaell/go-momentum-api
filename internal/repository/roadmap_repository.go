@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -116,21 +117,61 @@ func (r *RoadmapRepository) UpdateStepTitle(ctx context.Context, userID, stepID,
 	return nil
 }
 
-func (r *RoadmapRepository) DeleteRoadmapStep(ctx context.Context, userID, stepID string) error {
-	// Query ini lebih sederhana dan efisien, menggunakan klausa USING dari PostgreSQL
-	// untuk melakukan join implisit dan validasi kepemilikan.
-	sql := `DELETE FROM roadmap_steps
-	        USING goals
-	        WHERE roadmap_steps.id = $1
-	          AND roadmap_steps.goal_id = goals.id
-	          AND goals.user_id = $2`
+// Ubah fungsi DeleteRoadmapStep menjadi seperti ini
+func (r *RoadmapRepository) DeleteRoadmapStep(ctx context.Context, tx pgx.Tx, stepID string) error {
+    sql := `DELETE FROM roadmap_steps WHERE id = $1`
+    result, err := tx.Exec(ctx, sql, stepID)
+    if err != nil {
+        return err
+    }
+    if result.RowsAffected() == 0 {
+        return pgx.ErrNoRows
+    }
+    return nil
+}
 
-	result, err := r.db.Exec(ctx, sql, stepID, userID)
+func (r *RoadmapRepository) ReorderRoadmapSteps(ctx context.Context, userID string, stepIDs []string) error {
+	// 1. Mulai sebuah transaksi
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if result.RowsAffected() == 0 {
-		return pgx.ErrNoRows // Kirim error jika tidak ada baris yang dihapus
+	// 2. Pastikan transaksi di-rollback jika ada error di tengah jalan
+	defer tx.Rollback(ctx)
+
+	// Query untuk update satu langkah, dengan validasi kepemilikan
+	sql := `UPDATE roadmap_steps SET step_order = $1
+	        WHERE id = $2 AND goal_id = (
+	            SELECT id FROM goals WHERE user_id = $3 AND is_active = TRUE
+	        )`
+
+	// 3. Lakukan update satu per satu untuk setiap langkah
+	for i, stepID := range stepIDs {
+		newOrder := i + 1
+		// Jalankan perintah di dalam transaksi
+		if _, err := tx.Exec(ctx, sql, newOrder, stepID, userID); err != nil {
+			// Jika satu saja gagal, seluruh proses akan dibatalkan oleh Rollback
+			return fmt.Errorf("gagal update step dengan ID %s: %w", stepID, err)
+		}
 	}
-	return nil
+
+	// 4. Jika semua update berhasil, commit transaksinya
+	return tx.Commit(ctx)
+}
+
+func (r *RoadmapRepository) GetStepByID(ctx context.Context, stepID string) (*RoadmapStep, error) {
+    var step RoadmapStep
+    sql := "SELECT id, goal_id, step_order FROM roadmap_steps WHERE id = $1"
+    err := r.db.QueryRow(ctx, sql, stepID).Scan(&step.ID, &step.GoalID, &step.Order)
+    if err != nil {
+        return nil, err
+    }
+    return &step, nil
+}
+
+// RenumberStepsAfterDelete (untuk merapikan urutan)
+func (r *RoadmapRepository) RenumberStepsAfterDelete(ctx context.Context, tx pgx.Tx, goalID string, deletedOrder int) error {
+    sql := "UPDATE roadmap_steps SET step_order = step_order - 1 WHERE goal_id = $1 AND step_order > $2"
+    _, err := tx.Exec(ctx, sql, goalID, deletedOrder)
+    return err
 }

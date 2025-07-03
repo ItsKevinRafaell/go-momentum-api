@@ -2,24 +2,28 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/repository"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type GoalService struct {
+	db *pgxpool.Pool
 	goalRepo    *repository.GoalRepository
 	roadmapRepo *repository.RoadmapRepository
 	aiService   *AIService // <-- 1. Tambahkan dependensi ke AI Service
 }
 
 // 2. Terima AIService sebagai argumen
-func NewGoalService(goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository, aiService *AIService) *GoalService {
-	return &GoalService{
-		goalRepo:    goalRepo,
-		roadmapRepo: roadmapRepo,
-		aiService:   aiService, // <-- 3. Simpan instance-nya
-	}
+func NewGoalService(db *pgxpool.Pool, goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository, aiService *AIService) *GoalService {
+    return &GoalService{
+        db:          db,
+        goalRepo:    goalRepo,
+        roadmapRepo: roadmapRepo,
+        aiService:   aiService,
+    }
 }
 
 // Fungsi callAIToGenerateRoadmap yang lama bisa dihapus.
@@ -133,5 +137,38 @@ func (s *GoalService) UpdateRoadmapStep(ctx context.Context, userID, stepID, new
 }
 
 func (s *GoalService) DeleteRoadmapStep(ctx context.Context, userID, stepID string) error {
-	return s.roadmapRepo.DeleteRoadmapStep(ctx, userID, stepID)
+    // Kita butuh transaksi karena ada beberapa operasi database
+    tx, err := s.db.Begin(ctx)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback(ctx)
+
+    // 1. Dapatkan detail step yang mau dihapus untuk tahu order & goalId-nya
+    stepToDelete, err := s.roadmapRepo.GetStepByID(ctx, stepID)
+    if err != nil {
+        return errors.New("step not found")
+    }
+
+    // 2. Validasi kepemilikan
+    activeGoal, err := s.goalRepo.GetActiveGoalByUserID(ctx, userID)
+    if err != nil || activeGoal.ID != stepToDelete.GoalID {
+        return errors.New("user does not have permission to delete this step")
+    }
+
+    // 3. Hapus step di dalam transaksi
+    if err := s.roadmapRepo.DeleteRoadmapStep(ctx, tx, stepID); err != nil {
+        return err
+    }
+
+    // 4. Perbarui urutan step lain di dalam transaksi yang sama
+    if err := s.roadmapRepo.RenumberStepsAfterDelete(ctx, tx, stepToDelete.GoalID, stepToDelete.Order); err != nil {
+        return err
+    }
+
+    // 5. Jika semua berhasil, commit transaksinya
+    return tx.Commit(ctx)
+}
+func (s *GoalService) ReorderRoadmapSteps(ctx context.Context, userID string, stepIDs []string) error {
+	return s.roadmapRepo.ReorderRoadmapSteps(ctx, userID, stepIDs)
 }

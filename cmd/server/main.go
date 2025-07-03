@@ -38,7 +38,7 @@ func main() {
 
 	// 3. Berikan aiService ke service lain yang membutuhkannya
 	authService := service.NewAuthService(userRepo)
-	goalService := service.NewGoalService(goalRepo, roadmapRepo, aiService)
+	goalService := service.NewGoalService(dbPool, goalRepo, roadmapRepo, aiService)
 	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo, aiService)
 
 	// 4. Buat instance Handler seperti biasa
@@ -82,6 +82,7 @@ func main() {
 		r.Post("/api/goals/{goalId}/steps", goalHandler.AddRoadmapStep)
 		r.Put("/api/roadmap-steps/{stepId}", goalHandler.UpdateRoadmapStep)
 		r.Delete("/api/roadmap-steps/{stepId}", goalHandler.DeleteRoadmapStep)
+		r.Put("/api/roadmap/reorder", goalHandler.ReorderRoadmapSteps)
 
 		r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
 		r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)

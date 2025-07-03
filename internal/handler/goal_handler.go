@@ -28,6 +28,10 @@ type AddStepPayload struct {
     Title string `json:"title"`
 }
 
+type ReorderPayload struct {
+	StepIDs []string `json:"step_ids"`
+}
+
 func NewGoalHandler(goalService *service.GoalService) *GoalHandler {
 	return &GoalHandler{goalService: goalService}
 }
@@ -198,4 +202,22 @@ func (h *GoalHandler) DeleteRoadmapStep(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent) // 204 No Content untuk delete yang sukses
+}
+
+func (h *GoalHandler) ReorderRoadmapSteps(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(auth.UserIDKey).(string)
+
+	var payload ReorderPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if err := h.goalService.ReorderRoadmapSteps(r.Context(), userID, payload.StepIDs); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to reorder steps")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"message": "Roadmap reordered successfully"})
 }
