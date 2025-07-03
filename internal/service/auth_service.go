@@ -94,3 +94,8 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, oldPassword, n
     // Simpan hash password baru
     return s.userRepo.UpdatePasswordHash(ctx, userID, string(newHashedPassword))
 }
+
+func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*repository.User, error) {
+	// Service ini hanya meneruskan panggilan ke repository.
+	return s.userRepo.GetUserByID(ctx, userID)
+}

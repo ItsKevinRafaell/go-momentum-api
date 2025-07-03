@@ -104,3 +104,24 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
     json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
 }
+
+func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+    // Ambil userID dari context yang sudah disisipkan oleh middleware
+    userID, ok := r.Context().Value(auth.UserIDKey).(string)
+    if !ok {
+        writeJSONError(w, http.StatusUnauthorized, "Invalid token")
+        return
+    }
+
+    // Panggil service untuk mendapatkan detail user berdasarkan ID
+    user, err := h.authService.GetUserByID(r.Context(), userID)
+    if err != nil {
+        writeJSONError(w, http.StatusNotFound, "User not found")
+        return
+    }
+
+    // Kirim data user sebagai respons JSON
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(user)
+}
