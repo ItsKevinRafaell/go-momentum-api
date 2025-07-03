@@ -8,6 +8,7 @@ import (
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/auth"
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type GoalHandler struct {
@@ -145,4 +146,35 @@ func (h *GoalHandler) AddRoadmapStep(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusCreated)
     json.NewEncoder(w).Encode(newStep)
+}
+
+func (h *GoalHandler) UpdateRoadmapStep(w http.ResponseWriter, r *http.Request) {
+    userID, ok := r.Context().Value(auth.UserIDKey).(string)
+    if !ok {
+        writeJSONError(w, http.StatusUnauthorized, "Invalid token")
+        return
+    }
+    stepID := chi.URLParam(r, "stepId")
+
+    var payload AddStepPayload // Bisa pakai payload yang sama (hanya butuh title)
+    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+        writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+        return
+    }
+    if payload.Title == "" {
+        writeJSONError(w, http.StatusBadRequest, "Title cannot be empty")
+        return
+    }
+
+    err := h.goalService.UpdateRoadmapStep(r.Context(), userID, stepID, payload.Title)
+    if err != nil {
+        if err == pgx.ErrNoRows {
+            writeJSONError(w, http.StatusNotFound, "Roadmap step not found or you don't have permission")
+            return
+        }
+        writeJSONError(w, http.StatusInternalServerError, "Failed to update roadmap step")
+        return
+    }
+
+    writeJSONError(w, http.StatusOK, "Roadmap step updated successfully")
 }

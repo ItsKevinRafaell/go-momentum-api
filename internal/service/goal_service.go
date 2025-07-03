@@ -127,3 +127,7 @@ func (s *GoalService) AddRoadmapStep(ctx context.Context, goalID, title string) 
     // 3. Simpan ke database
     return s.roadmapRepo.CreateRoadmapStep(ctx, newStep)
 }
+
+func (s *GoalService) UpdateRoadmapStep(ctx context.Context, userID, stepID, newTitle string) error {
+    return s.roadmapRepo.UpdateStepTitle(ctx, userID, stepID, newTitle)
+}

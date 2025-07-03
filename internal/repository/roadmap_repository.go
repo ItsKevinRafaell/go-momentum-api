@@ -97,3 +97,21 @@ func (r *RoadmapRepository) CreateRoadmapStep(ctx context.Context, step *Roadmap
     }
     return &createdStep, nil
 }
+
+func (r *RoadmapRepository) UpdateStepTitle(ctx context.Context, userID, stepID, newTitle string) error {
+	// Query ini hanya akan berhasil jika stepId yang diberikan ada di dalam goal
+	// yang dimiliki oleh userID yang sedang login.
+	sql := `UPDATE roadmap_steps rs SET title = $1
+	        WHERE rs.id = $2 AND EXISTS (
+	            SELECT 1 FROM goals g WHERE g.id = rs.goal_id AND g.user_id = $3
+	        )`
+
+	result, err := r.db.Exec(ctx, sql, newTitle, stepID, userID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows // Kirim error jika tidak ada baris yang diubah
+	}
+	return nil
+}
