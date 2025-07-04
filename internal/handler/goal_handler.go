@@ -32,6 +32,10 @@ type ReorderPayload struct {
 	StepIDs []string `json:"step_ids"`
 }
 
+type UpdateStepStatusPayload struct {
+	Status string `json:"status"`
+}
+
 func NewGoalHandler(goalService *service.GoalService) *GoalHandler {
 	return &GoalHandler{goalService: goalService}
 }
@@ -220,4 +224,27 @@ func (h *GoalHandler) ReorderRoadmapSteps(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusOK)
     json.NewEncoder(w).Encode(map[string]string{"message": "Roadmap reordered successfully"})
+}
+
+func (h *GoalHandler) UpdateRoadmapStepStatus(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(auth.UserIDKey).(string)
+	stepID := chi.URLParam(r, "stepId")
+
+	var payload UpdateStepStatusPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	err := h.goalService.UpdateRoadmapStepStatus(r.Context(), userID, stepID, payload.Status)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeJSONError(w, http.StatusNotFound, "Roadmap step not found or permission denied")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Failed to update roadmap step status")
+		return
+	}
+
+	writeJSONError(w, http.StatusOK, "Roadmap step status updated")
 }

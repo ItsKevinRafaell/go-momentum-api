@@ -190,3 +190,20 @@ func (r *RoadmapRepository) GetNextPendingStep(ctx context.Context, goalID strin
     }
     return &step, nil
 }
+
+func (r *RoadmapRepository) UpdateStepStatus(ctx context.Context, userID, stepID, status string) error {
+	// Query ini aman, hanya akan mengupdate jika step tersebut milik goal dari user yg sedang login
+	sql := `UPDATE roadmap_steps SET status = $1 
+	        WHERE id = $2 AND goal_id = (
+	            SELECT id FROM goals WHERE user_id = $3 AND is_active = TRUE
+	        )`
+
+	result, err := r.db.Exec(ctx, sql, status, stepID, userID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows // Kirim error jika tidak ada yang diubah
+	}
+	return nil
+}

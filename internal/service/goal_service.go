@@ -172,3 +172,9 @@ func (s *GoalService) DeleteRoadmapStep(ctx context.Context, userID, stepID stri
 func (s *GoalService) ReorderRoadmapSteps(ctx context.Context, userID string, stepIDs []string) error {
 	return s.roadmapRepo.ReorderRoadmapSteps(ctx, userID, stepIDs)
 }
+
+func (s *GoalService) UpdateRoadmapStepStatus(ctx context.Context, userID, stepID, status string) error {
+	// Di masa depan, kita bisa menambahkan logika di sini,
+	// misalnya: jika semua step selesai, update status goal utama.
+	return s.roadmapRepo.UpdateStepStatus(ctx, userID, stepID, status)
+}
