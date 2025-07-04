@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/repository"
+	"github.com/jackc/pgx/v5"
 )
 
 type TaskService struct {
@@ -36,49 +37,60 @@ func (s *TaskService) GetOrCreateTodaySchedule(ctx context.Context, userID strin
 	if err != nil {
 		return nil, err
 	}
-
-	// 2. Jika sudah ada, langsung kembalikan
 	if len(existingTasks) > 0 {
 		log.Println("Jadwal hari ini sudah ada, mengembalikan dari database.")
 		return existingTasks, nil
 	}
 
-	// 3. Jika belum ada, mulai proses generasi jadwal baru
+	// 2. Jika belum ada, mulai proses generasi jadwal baru
 	log.Println("Jadwal hari ini belum ada. Memulai proses generasi baru...")
 
 	activeGoal, err := s.goalRepo.GetActiveGoalByUserID(ctx, userID)
 	if err != nil || activeGoal == nil {
-		// Jika tidak ada goal aktif, kembalikan array kosong, bukan error
+		// Jika tidak ada goal aktif, tidak ada tugas yang bisa dibuat.
 		return []repository.Task{}, nil
 	}
 
+	// --- LOGIKA BARU: MENCARI LANGKAH ROADMAP AKTIF ---
+	currentStep, err := s.roadmapRepo.GetNextPendingStep(ctx, activeGoal.ID)
+	if err != nil {
+		// pgx.ErrNoRows berarti semua langkah di roadmap sudah selesai.
+		if err == pgx.ErrNoRows {
+			log.Println("Selamat! Semua langkah roadmap sudah selesai untuk goal ini.")
+			return []repository.Task{}, nil
+		}
+		// Error lainnya
+		return nil, err
+	}
+
+	// 3. Kumpulkan konteks untuk AI
 	yesterday := today.AddDate(0, 0, -1)
 	yesterdayTasks, err := s.taskRepo.GetTasksByDate(ctx, userID, yesterday)
 	if err != nil {
 		return nil, err
 	}
 
-	// Panggil method dari aiService yang asli
-	newTasksFromAI, err := s.aiService.GenerateDailyTasksWithAI(ctx, activeGoal.Description, yesterdayTasks)
+	// 4. Panggil AI dengan konteks yang lebih kaya (termasuk judul langkah saat ini)
+	newTasksFromAI, err := s.aiService.GenerateDailyTasksWithAI(ctx, activeGoal.Description, currentStep.Title, yesterdayTasks)
 	if err != nil {
 		return nil, err
 	}
 
-	// Jika AI tidak menghasilkan tugas, kembalikan array kosong
 	if len(newTasksFromAI) == 0 {
 		return []repository.Task{}, nil
 	}
 
-	// Simpan tugas satu per satu untuk mendapatkan ID unik dari database
+	// 5. Simpan tugas baru dan hubungkan ke langkah roadmap saat ini
 	var createdTasks []repository.Task
 	for _, taskToCreate := range newTasksFromAI {
 		taskToCreate.UserID = userID
 		taskToCreate.Status = "pending"
 		taskToCreate.ScheduledDate = today
-
+		taskToCreate.RoadmapStepID = &currentStep.ID // <-- Menghubungkan tugas ke langkah roadmap!
+		
 		createdTask, err := s.taskRepo.CreateTask(ctx, &taskToCreate)
 		if err != nil {
-			return nil, err // Jika satu gagal, hentikan proses
+			return nil, err
 		}
 		createdTasks = append(createdTasks, *createdTask)
 	}
@@ -100,7 +112,14 @@ func (s *TaskService) FinalizeDayReview(ctx context.Context, userID string) ([]r
 	if err != nil {
 		return nil, "", err
 	}
-	feedback, err := s.aiService.GenerateReviewFeedback(ctx, summary)
+	activeGoal, err := s.goalRepo.GetActiveGoalByUserID(ctx, userID)
+    if err != nil || activeGoal == nil {
+        // Jika tidak ada goal, berikan string kosong sebagai deskripsi
+        activeGoal = &repository.Goal{ Description: "mencapai tujuan mereka" }
+    }
+
+    // Panggil AI dengan parameter baru
+    feedback, err := s.aiService.GenerateReviewFeedback(ctx, activeGoal.Description, summary)
 	if err != nil {
 		feedback = "Gagal mendapatkan feedback dari AI, tapi tetap semangat untuk esok hari!"
 	}

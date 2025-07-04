@@ -89,7 +89,7 @@ func (s *AIService) GenerateRoadmapWithAI(ctx context.Context, goalDescription s
 }
 
 // GenerateDailyTasksWithAI membuat daftar tugas harian berdasarkan konteks.
-func (s *AIService) GenerateDailyTasksWithAI(ctx context.Context, goalDesc string, yesterdayTasks []repository.Task) ([]repository.Task, error) {
+func (s *AIService) GenerateDailyTasksWithAI(ctx context.Context, goalDesc string, currentStepTitle string, yesterdayTasks []repository.Task) ([]repository.Task, error) {
 	log.Println("Memanggil AI Gemini untuk membuat jadwal harian...")
 
 	var yesterdaySummary string
@@ -100,14 +100,18 @@ func (s *AIService) GenerateDailyTasksWithAI(ctx context.Context, goalDesc strin
 	}
 
 	prompt := fmt.Sprintf(
-		`Sebagai seorang productivity coach, buatkan 3 sampai 4 tugas konkret untuk HARI INI untuk membantu pengguna mencapai tujuan utamanya: "%s".
-		%s
-		Prioritaskan tugas yang mungkin terlewat kemarin.
-		JAWAB HANYA DENGAN FORMAT JSON ARRAY seperti ini, tanpa teks pembuka atau penutup sama sekali:
-		[{"title": "Judul Tugas 1"}, {"title": "Judul Tugas 2"}]`,
-		goalDesc,
-		yesterdaySummary,
-	)
+        `Sebagai seorang productivity coach, buatkan 3-4 tugas HARI INI.
+        Tujuan besar pengguna: "%s".
+        FOKUS UTAMA HARI INI adalah pada langkah roadmap: "%s".
+        Konteks dari kemarin: %s.
+
+        Berdasarkan FOKUS UTAMA hari ini, berikan tugas-tugas yang sangat spesifik dan bisa dikerjakan.
+        JAWAB HANYA DENGAN FORMAT JSON ARRAY seperti ini, tanpa teks tambahan:
+        [{"title": "Judul Tugas Spesifik 1"}, {"title": "Judul Tugas Spesifik 2"}]`,
+        goalDesc,
+        currentStepTitle, // <-- Gunakan konteks baru
+        yesterdaySummary,
+    )
 
 	resp, err := s.genaiClient.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
@@ -142,13 +146,39 @@ func (s *AIService) GenerateDailyTasksWithAI(ctx context.Context, goalDesc strin
 
 
 // GenerateReviewFeedback membuat feedback motivasional (TIDAK PERLU PEMBERSIH JSON).
-func (s *AIService) GenerateReviewFeedback(ctx context.Context, summary []repository.TaskSummary) (string, error) {
-	log.Println("Memanggil AI Gemini untuk membuat feedback review...")
-	summaryJson, _ := json.Marshal(summary)
+func (s *AIService) GenerateReviewFeedback(ctx context.Context, goalDesc string, summary []repository.TaskSummary) (string, error) {
+	log.Println("Memanggil AI Gemini untuk membuat feedback review yang kontekstual...")
+
+    // --- LOGIKA BARU UNTUK MEMBUAT NARASI ---
+	completedCount := 0
+	missedCount := 0
+    pendingCount := 0
+
+	for _, s := range summary {
+		if s.Status == "completed" {
+			completedCount = s.Count
+		} else if s.Status == "missed" {
+			missedCount = s.Count
+		} else if s.Status == "pending" {
+            pendingCount = s.Count
+        }
+	}
+
+    narrative := fmt.Sprintf(
+        "Pengguna menyelesaikan %d tugas, melewatkan %d tugas, dan masih memiliki %d tugas yang belum selesai.",
+        completedCount,
+        missedCount,
+        pendingCount,
+    )
+    // --- AKHIR LOGIKA NARASI ---
+
 	prompt := fmt.Sprintf(
-		`Sebagai seorang productivity coach yang positif dan suportif, berikan feedback singkat (2-3 kalimat) yang membangun semangat berdasarkan ringkasan data JSON ini: %s. 
-		Fokus pada pencapaian jika ada, dan beri semangat untuk mencoba lagi jika ada yang terlewat. Jangan gunakan format JSON untuk jawabanmu.`,
-		string(summaryJson),
+		`Anda adalah seorang productivity coach yang suportif. Tujuan besar pengguna adalah: "%s".
+		Berikut adalah ringkasan performa mereka hari ini: "%s".
+		Berikan feedback singkat (2-3 kalimat) yang positif dan membangun. Jika ada tugas yang selesai, puji progres mereka menuju tujuan besarnya. Jika tidak ada yang selesai, berikan semangat tanpa menghakimi untuk mencoba lagi besok.
+        JAWAB SEBAGAI COACH, BUKAN SEBAGAI ASISTEN. JANGAN GUNAKAN FORMAT JSON.`,
+		goalDesc,
+		narrative,
 	)
 
 	resp, err := s.genaiClient.GenerateContent(ctx, genai.Text(prompt))

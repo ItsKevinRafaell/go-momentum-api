@@ -175,3 +175,18 @@ func (r *RoadmapRepository) RenumberStepsAfterDelete(ctx context.Context, tx pgx
     _, err := tx.Exec(ctx, sql, goalID, deletedOrder)
     return err
 }
+
+func (r *RoadmapRepository) GetNextPendingStep(ctx context.Context, goalID string) (*RoadmapStep, error) {
+    var step RoadmapStep
+    sql := `SELECT id, goal_id, step_order, title, status 
+            FROM roadmap_steps 
+            WHERE goal_id = $1 AND status = 'pending' 
+            ORDER BY step_order ASC 
+            LIMIT 1`
+
+    err := r.db.QueryRow(ctx, sql, goalID).Scan(&step.ID, &step.GoalID, &step.Order, &step.Title, &step.Status)
+    if err != nil {
+        return nil, err 
+    }
+    return &step, nil
+}
