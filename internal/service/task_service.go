@@ -15,14 +15,16 @@ type TaskService struct {
 	goalRepo    *repository.GoalRepository
 	roadmapRepo *repository.RoadmapRepository
 	aiService   *AIService
+	reviewRepo  *repository.ReviewRepository
 }
 
-func NewTaskService(taskRepo *repository.TaskRepository, goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository, aiService *AIService) *TaskService {
+func NewTaskService(taskRepo *repository.TaskRepository, goalRepo *repository.GoalRepository, roadmapRepo *repository.RoadmapRepository, aiService *AIService, reviewRepo *repository.ReviewRepository) *TaskService {
 	return &TaskService{
 		taskRepo:    taskRepo,
 		goalRepo:    goalRepo,
 		roadmapRepo: roadmapRepo,
 		aiService:   aiService,
+		reviewRepo:  reviewRepo,
 	}
 }
 
@@ -123,6 +125,19 @@ func (s *TaskService) FinalizeDayReview(ctx context.Context, userID string) ([]r
 	if err != nil {
 		feedback = "Gagal mendapatkan feedback dari AI, tapi tetap semangat untuk esok hari!"
 	}
+
+	review := &repository.DailyReview{
+        UserID:      userID,
+        ReviewDate:  today,
+        Summary:     summary,
+        AIFeedback:  feedback,
+    }
+    if err := s.reviewRepo.CreateOrUpdateReview(ctx, review); err != nil {
+        // Kita hanya log error ini, tidak menghentikan proses utama
+        // agar pengguna tetap mendapat feedback di UI
+        log.Printf("ERROR saving daily review: %v", err)
+    }
+
 	return summary, feedback, nil
 }
 
@@ -155,4 +170,7 @@ func (s *TaskService) UpdateTaskTitle(ctx context.Context, userID string, taskID
 
 func (s *TaskService) DeleteTask(ctx context.Context, userID, taskID string) error {
 	return s.taskRepo.DeleteTask(ctx, userID, taskID)
+}
+func (s *TaskService) GetReviewByDate(ctx context.Context, userID string, date time.Time) (*repository.DailyReview, error) {
+    return s.reviewRepo.GetReviewByDate(ctx, userID, date)
 }

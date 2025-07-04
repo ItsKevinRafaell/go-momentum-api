@@ -225,3 +225,28 @@ func (h *TaskHandler) ReviewDay(w http.ResponseWriter, r *http.Request) {
 		"ai_feedback": feedback,
 	})
 }
+
+func (h *TaskHandler) GetHistoryByDate(w http.ResponseWriter, r *http.Request) {
+    userID, _ := r.Context().Value(auth.UserIDKey).(string)
+    dateStr := chi.URLParam(r, "date") // Ambil tanggal dari URL (format YYYY-MM-DD)
+
+    date, err := time.Parse("2006-01-02", dateStr)
+    if err != nil {
+        writeJSONError(w, http.StatusBadRequest, "Invalid date format. Use YYYY-MM-DD.")
+        return
+    }
+
+    review, err := h.taskService.GetReviewByDate(r.Context(), userID, date)
+    if err != nil {
+        if err == pgx.ErrNoRows {
+            writeJSONError(w, http.StatusNotFound, "No review found for this date.")
+            return
+        }
+        writeJSONError(w, http.StatusInternalServerError, "Failed to fetch history.")
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(review)
+}

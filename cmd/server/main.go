@@ -32,6 +32,7 @@ func main() {
 	goalRepo := repository.NewGoalRepository(dbPool)
 	roadmapRepo := repository.NewRoadmapRepository(dbPool)
 	taskRepo := repository.NewTaskRepository(dbPool)
+	reviewRepo := repository.NewReviewRepository(dbPool)
 
 	// 2. Buat instance AIService
 	aiService := service.NewAIService()
@@ -39,7 +40,7 @@ func main() {
 	// 3. Berikan aiService ke service lain yang membutuhkannya
 	authService := service.NewAuthService(userRepo)
 	goalService := service.NewGoalService(dbPool, goalRepo, roadmapRepo, aiService)
-	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo, aiService)
+	taskService := service.NewTaskService(taskRepo, goalRepo, roadmapRepo, aiService, reviewRepo)
 
 	// 4. Buat instance Handler seperti biasa
 	authHandler := handler.NewAuthHandler(authService)
@@ -87,6 +88,8 @@ func main() {
 		r.Put("/api/roadmap-steps/{stepId}/status", goalHandler.UpdateRoadmapStepStatus)
 
 		r.Get("/api/schedule/today", taskHandler.GetTodaySchedule)
+		r.Get("/api/schedule/history/{date}", taskHandler.GetHistoryByDate)
+
 		r.Put("/api/tasks/{taskId}/status", taskHandler.UpdateTaskStatus)
 		r.Put("/api/tasks/{taskId}/deadline", taskHandler.UpdateTaskDeadline)
 		r.Put("/api/tasks/{taskId}", taskHandler.UpdateTaskTitle)
