@@ -58,8 +58,8 @@ func (s *AuthService) LoginUser(ctx context.Context, email, password string) (st
 	// 3. Jika berhasil, buat JWT Token
 	claims := jwt.MapClaims{
 		"sub": user.ID,                                       // Subject (identitas user)
-		"exp": time.Now().Add(time.Hour * 24).Unix(),         // Waktu kedaluwarsa (24 jam)
-		"iat": time.Now().Unix(),                             // Waktu token dibuat
+		"exp": time.Now().UTC().Add(time.Hour * 24).Unix(),         // Waktu kedaluwarsa (24 jam)
+		"iat": time.Now().UTC().Unix(),                             // Waktu token dibuat
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

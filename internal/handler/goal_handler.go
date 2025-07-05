@@ -227,7 +227,11 @@ func (h *GoalHandler) ReorderRoadmapSteps(w http.ResponseWriter, r *http.Request
 }
 
 func (h *GoalHandler) UpdateRoadmapStepStatus(w http.ResponseWriter, r *http.Request) {
-	userID, _ := r.Context().Value(auth.UserIDKey).(string)
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
 	stepID := chi.URLParam(r, "stepId")
 
 	var payload UpdateStepStatusPayload
@@ -242,7 +246,7 @@ func (h *GoalHandler) UpdateRoadmapStepStatus(w http.ResponseWriter, r *http.Req
 			writeJSONError(w, http.StatusNotFound, "Roadmap step not found or permission denied")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, "Failed to update roadmap step status")
+		writeJSONError(w, http.StatusInternalServerError, "Failed to update step status")
 		return
 	}
 

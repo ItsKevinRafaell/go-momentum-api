@@ -174,7 +174,6 @@ func (s *GoalService) ReorderRoadmapSteps(ctx context.Context, userID string, st
 }
 
 func (s *GoalService) UpdateRoadmapStepStatus(ctx context.Context, userID, stepID, status string) error {
-	// Di masa depan, kita bisa menambahkan logika di sini,
-	// misalnya: jika semua step selesai, update status goal utama.
+	// Untuk saat ini, service hanya meneruskan panggilan ke repository yang sudah aman
 	return s.roadmapRepo.UpdateStepStatus(ctx, userID, stepID, status)
 }

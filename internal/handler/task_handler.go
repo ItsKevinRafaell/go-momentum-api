@@ -38,6 +38,41 @@ func NewTaskHandler(taskService *service.TaskService) *TaskHandler {
 	return &TaskHandler{taskService: taskService}
 }
 
+// StartDay adalah handler untuk endpoint baru yang cerdas.
+func (h *TaskHandler) StartDay(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+	tasks, err := h.taskService.StartNewDay(r.Context(), userID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to start new day")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tasks)
+}
+
+// GetTodayScheduleReadOnly sekarang menjadi handler untuk GET.
+func (h *TaskHandler) GetTodayScheduleReadOnly(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(auth.UserIDKey).(string)
+
+	now := time.Now().UTC() // Gunakan UTC
+today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	tasks, err := h.taskService.GetTodayScheduleReadOnly(r.Context(), userID, today)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to get schedule")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tasks)
+}
+
 func (h *TaskHandler) GetTodaySchedule(w http.ResponseWriter, r *http.Request) {
 	// 1. Ambil userID dari context
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
@@ -47,7 +82,7 @@ func (h *TaskHandler) GetTodaySchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Panggil service untuk mendapatkan atau membuat jadwal
-	tasks, err := h.taskService.GetOrCreateTodaySchedule(r.Context(), userID)
+	tasks, err := h.taskService.GetOrCreateTodaySchedule(r.Context(), userID, time.Now().UTC(),)
 	if err != nil {
 		http.Error(w, "Failed to get or create schedule", http.StatusInternalServerError)
 		return
@@ -212,7 +247,7 @@ func (h *TaskHandler) ReviewDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary, feedback, err := h.taskService.FinalizeDayReview(r.Context(), userID)
+	summary, feedback, err := h.taskService.FinalizeDayReview(r.Context(), userID, time.Now().UTC())
 	if err != nil {
 		http.Error(w, "Failed to finalize day review", http.StatusInternalServerError)
 		return
@@ -226,27 +261,27 @@ func (h *TaskHandler) ReviewDay(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetHistoryByDate adalah handler untuk fitur riwayat.
 func (h *TaskHandler) GetHistoryByDate(w http.ResponseWriter, r *http.Request) {
-    userID, _ := r.Context().Value(auth.UserIDKey).(string)
-    dateStr := chi.URLParam(r, "date") // Ambil tanggal dari URL (format YYYY-MM-DD)
+	userID, _ := r.Context().Value(auth.UserIDKey).(string)
+	dateStr := chi.URLParam(r, "date")
 
-    date, err := time.Parse("2006-01-02", dateStr)
-    if err != nil {
-        writeJSONError(w, http.StatusBadRequest, "Invalid date format. Use YYYY-MM-DD.")
-        return
-    }
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid date format. Use YYYY-MM-DD.")
+		return
+	}
 
-    review, err := h.taskService.GetReviewByDate(r.Context(), userID, date)
-    if err != nil {
-        if err == pgx.ErrNoRows {
-            writeJSONError(w, http.StatusNotFound, "No review found for this date.")
-            return
-        }
-        writeJSONError(w, http.StatusInternalServerError, "Failed to fetch history.")
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    json.NewEncoder(w).Encode(review)
+	review, err := h.taskService.GetReviewByDate(r.Context(), userID, date)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeJSONError(w, http.StatusNotFound, "No review found for this date.")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Failed to fetch history.")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(review)
 }
