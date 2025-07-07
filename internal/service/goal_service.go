@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 
 	"github.com/ItsKevinRafaell/go-momentum-api/internal/repository"
 	"github.com/jackc/pgx/v5"
@@ -27,14 +29,17 @@ func NewGoalService(db *pgxpool.Pool, goalRepo *repository.GoalRepository, roadm
 }
 
 // Fungsi callAIToGenerateRoadmap yang lama bisa dihapus.
-
 func (s *GoalService) CreateNewGoal(ctx context.Context, userID string, goalDescription string) (*repository.Goal, []repository.RoadmapStep, error) {
-	// 4. Panggil AI service yang asli, bukan mock lagi
-	steps, err := s.aiService.GenerateRoadmapWithAI(ctx, goalDescription)
+	// 1. Panggil AI untuk membuat roadmap
+	stepsFromAI, err := s.aiService.GenerateRoadmapWithAI(ctx, goalDescription)
 	if err != nil {
 		return nil, nil, err
 	}
+	if len(stepsFromAI) == 0 {
+		return nil, nil, errors.New("AI did not generate any roadmap steps")
+	}
 
+	// 2. Buat objek goal baru dan simpan
 	newGoal := &repository.Goal{
 		UserID:      userID,
 		Description: goalDescription,
@@ -46,16 +51,26 @@ func (s *GoalService) CreateNewGoal(ctx context.Context, userID string, goalDesc
 	}
 	newGoal.ID = goalID
 
-	for i := range steps {
-		steps[i].GoalID = goalID
-	}
+	// --- PERUBAHAN UTAMA: SIMPAN LANGKAH SATU PER SATU ---
+	var savedSteps []repository.RoadmapStep
+	for _, step := range stepsFromAI {
+		step.GoalID = goalID
+		step.Status = "pending"
 
-	err = s.roadmapRepo.CreateRoadmapSteps(ctx, steps)
-	if err != nil {
-		return nil, nil, err
+		// Panggil fungsi CreateRoadmapStep (single) yang sudah kita punya
+		createdStep, err := s.roadmapRepo.CreateRoadmapStep(ctx, &step)
+		if err != nil {
+			// Jika satu langkah gagal disimpan, hapus goal yang sudah terlanjur dibuat
+			// agar data tetap konsisten.
+			log.Printf("Gagal menyimpan step, melakukan rollback dengan menghapus goal: %s", goalID)
+			s.goalRepo.DeleteGoalByID(ctx, goalID, userID) // Anda mungkin perlu membuat fungsi ini
+			return nil, nil, fmt.Errorf("gagal menyimpan langkah roadmap: %w", err)
+		}
+		savedSteps = append(savedSteps, *createdStep)
 	}
-
-	return newGoal, steps, nil
+	
+	log.Printf("Berhasil menyimpan %d langkah roadmap baru.", len(savedSteps))
+	return newGoal, savedSteps, nil
 }
 
 func (s *GoalService) GetActiveGoal(ctx context.Context, userID string) (*repository.Goal, []repository.RoadmapStep, error) {
@@ -78,7 +93,8 @@ func (s *GoalService) GetActiveGoal(ctx context.Context, userID string) (*reposi
 	return goal, steps, nil
 }
 
-// UpdateGoal mengorkestrasi proses update tujuan dan regenerasi roadmap.
+// file: internal/service/goal_service.go
+
 func (s *GoalService) UpdateGoal(ctx context.Context, userID, goalID, newDescription string) (*repository.Goal, []repository.RoadmapStep, error) {
     // 1. Update deskripsi goal di database
     if err := s.goalRepo.UpdateGoalDescription(ctx, userID, goalID, newDescription); err != nil {
@@ -99,7 +115,9 @@ func (s *GoalService) UpdateGoal(ctx context.Context, userID, goalID, newDescrip
     // 4. Hubungkan dan simpan roadmap steps yang baru
     for i := range newSteps {
         newSteps[i].GoalID = goalID
+        newSteps[i].Status = "pending" // <-- INI PERBAIKANNYA
     }
+    // Gunakan CreateRoadmapSteps yang melakukan bulk insert
     if err := s.roadmapRepo.CreateRoadmapSteps(ctx, newSteps); err != nil {
         return nil, nil, err
     }

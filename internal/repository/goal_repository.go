@@ -55,3 +55,21 @@ func (r *GoalRepository) UpdateGoalDescription(ctx context.Context, userID, goal
     }
     return nil
 }
+
+func (r *GoalRepository) DeleteGoalByID(ctx context.Context, goalID string, userID string) error {
+	// Klausa 'AND user_id = $2' sangat penting untuk keamanan.
+	sql := "DELETE FROM goals WHERE id = $1 AND user_id = $2"
+
+	result, err := r.db.Exec(ctx, sql, goalID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Pengecekan ini memastikan bahwa sebuah baris benar-benar terhapus.
+	// Jika tidak, berarti goal dengan ID tersebut tidak ada atau bukan milik user ini.
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}

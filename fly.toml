@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for go-momentum-api-cold-dawn-7307 on 2025-06-28T14:08:47+07:00
+# fly.toml app configuration file generated for momentum-api-final on 2025-07-07T18:32:03+07:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'go-momentum-api-cold-dawn-7307'
+app = 'momentum-api-final'
 primary_region = 'sin'
 
 [build]
@@ -20,12 +20,3 @@ primary_region = 'sin'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-
-[checks]
-  [checks.alive]
-    type = "http"
-    port = 8080
-    path = "/api/health"
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "5s"
